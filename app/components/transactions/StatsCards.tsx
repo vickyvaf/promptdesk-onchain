@@ -23,7 +23,7 @@ export function StatsCards() {
           </div>
         </div>
         <div className="mb-1 text-3xl font-bold text-zinc-900 dark:text-white">
-          450.00 USDC
+          450.00 IDRX
         </div>
         <div className="flex items-center gap-1 text-xs">
           <span className="font-medium text-green-600 dark:text-green-400">
@@ -90,7 +90,7 @@ export function StatsCards() {
           </div>
         </div>
         <div className="mb-1 text-3xl font-bold text-zinc-900 dark:text-white">
-          1,240.50 USDC
+          1,240.50 IDRX
         </div>
         <div className="flex items-center gap-1 text-xs">
           <span className="text-zinc-500 dark:text-zinc-400">

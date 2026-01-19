@@ -161,6 +161,9 @@ export default function GeneratorPage() {
                 isLocked={!account}
                 isConnected={!!account}
                 content={generatedContent}
+                prompt={prompt}
+                platform={selectedPlatform}
+                address={account?.address}
               />
 
               <div className="flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50/50 p-4 dark:border-blue-900/30 dark:bg-blue-900/20">

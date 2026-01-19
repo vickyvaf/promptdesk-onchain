@@ -5,7 +5,7 @@ interface PaymentSelectorProps {
 
 export function PaymentSelector({ selected, onSelect }: PaymentSelectorProps) {
   const tokens = [
-    { id: "usdc", label: "USDC", icon: "$" },
+    { id: "IDRX", label: "IDRX", icon: "$" },
     { id: "eth", label: "ETH", icon: "Ξ" },
     { id: "sol", label: "SOL", icon: "◎" },
   ];
@@ -17,7 +17,7 @@ export function PaymentSelector({ selected, onSelect }: PaymentSelectorProps) {
           Payment Selection
         </span>
         <span className="text-xs text-zinc-500 dark:text-zinc-400">
-          Cost: 1.50 USDC
+          Cost: 1.50 IDRX
         </span>
       </div>
       <div className="grid grid-cols-3 gap-3">

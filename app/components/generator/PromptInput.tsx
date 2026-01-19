@@ -18,7 +18,12 @@ export function PromptInput({ value, onChange }: PromptInputProps) {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ prompt: value }),
+        body: JSON.stringify({
+          prompt: value,
+          platform: "Prompt Engineering",
+          systemInstruction:
+            "You are an expert prompt engineer. Your goal is to rewrite the given prompt to be more clear, detailed, and effective for an AI generator. Keep the intent but maximize the potential output quality. Return ONLY the enhanced prompt, no explanations.",
+        }),
       });
 
       const data = await response.json();

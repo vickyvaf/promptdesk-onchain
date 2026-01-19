@@ -27,7 +27,7 @@ export function PromoBanner() {
           </h3>
           <p className="max-w-xl text-sm text-zinc-600 dark:text-zinc-400">
             Save up to 20% on fees by subscribing to a monthly generator plan.
-            Pay once in USDC and generate all month long.
+            Pay once in IDRX and generate all month long.
           </p>
         </div>
       </div>
