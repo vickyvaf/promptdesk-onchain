@@ -123,12 +123,6 @@ export function PreviewPanel({
     });
 
     try {
-      setToast({
-        show: true,
-        message: "Please confirm the transaction to copy...",
-        type: "success",
-      });
-
       sendTransaction(transaction, {
         onSuccess: async (tx) => {
           // 3. On success, copy to clipboard
