@@ -19,6 +19,7 @@
     "react-markdown": "^10.1.0",
     "tailwind-merge": "^3.4.0",
     "thirdweb": "^5.117.2",
+    "twitter-api-v2": "^1.29.0",
     "x402": "^1.1.0"
   },
   "devDependencies": {

@@ -1,9 +1,16 @@
+import {
+  connectToPlatform,
+  postContent,
+  openTwitterIntent,
+} from "@/lib/social";
 import { Toast } from "@/components/ui/Toast";
-import { connectToPlatform } from "@/lib/getlate";
 import { supabase } from "@/supabase/client";
-import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import { prepareTransaction, toWei } from "thirdweb";
+import { useSendTransaction, useActiveAccount } from "thirdweb/react";
+import { defineChain } from "thirdweb/chains";
+import { client } from "@/app/client";
 
 interface PreviewPanelProps {
   content?: string;
@@ -30,6 +37,12 @@ export function PreviewPanel({
   const [isSaving, setIsSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [isPosting, setIsPosting] = useState(false);
+
+  // Payment State
+  const [isPaid, setIsPaid] = useState(false);
+  const { mutate: sendTransaction } = useSendTransaction();
+  const activeAccount = useActiveAccount();
+
   const [toast, setToast] = useState<{
     show: boolean;
     message: string;
@@ -40,31 +53,16 @@ export function PreviewPanel({
     type: "success",
   });
 
-  // Reset isSaved when content changes
+  // Reset states when content changes
   useEffect(() => {
     setIsSaved(false);
+    setIsPaid(false); // New content requires new payment
   }, [content]);
 
   const handlePost = async () => {
     if (!platform || !content) return;
 
-    if (!isPlatformConnected) {
-      // Save pending post for auto-posting after callback
-      localStorage.setItem(
-        "pending_post",
-        JSON.stringify({
-          platform,
-          content,
-          // We might not have address if wallet disconnected during redirect (unlikely but possible)
-          // But we need it for the API call.
-          walletAddress: address,
-        }),
-      );
-      connectToPlatform(platform);
-      return;
-    }
-
-    if (!address) {
+    if (!activeAccount) {
       setToast({
         show: true,
         message: "Please connect wallet first",
@@ -73,81 +71,91 @@ export function PreviewPanel({
       return;
     }
 
-    setIsPosting(true);
-    await performPost(platform, content, address);
-    setIsPosting(false);
+    // 1. Check if Twitter is connected (Client-side intent doesn't strictly need auth, but good for UX)
+    // Actually, for Intent-based, we don't STRICTLY need the app connected, but let's keep the flow consistent.
+
+    // 2. Check for Payment
+    if (!isPaid) {
+      handlePayment();
+      return;
+    }
+
+    // 3. Execute Post (Intent)
+    openTwitterIntent(content);
+    setToast({
+      show: true,
+      message: "Opening Twitter to post...",
+      type: "success",
+    });
   };
 
-  const performPost = async (p: string, c: string, addr: string) => {
-    try {
-      const { postContent } = await import("@/lib/getlate");
-      const result = await postContent(p, c, addr);
+  const handlePayment = async () => {
+    setIsPosting(true);
 
-      if (result.error) {
-        setToast({
-          show: true,
-          message: "Failed to post: " + result.error,
-          type: "error",
-        });
-      } else {
-        setToast({
-          show: true,
-          message: "Posted successfully to " + p,
-          type: "success",
-        });
-        // Clear pending post if successful
-        localStorage.removeItem("pending_post");
-      }
+    const transaction = prepareTransaction({
+      to:
+        process.env.NEXT_PUBLIC_SERVER_WALLET_ADDRESS ||
+        "0x0000000000000000000000000000000000000000",
+      chain: defineChain(8453), // Base Mainnet
+      client: client,
+      value: toWei("0.0001"), // Approx 0.30 USD
+    });
+
+    try {
+      sendTransaction(transaction, {
+        onSuccess: async (tx) => {
+          setIsPaid(true);
+          setIsPosting(false);
+
+          // Record transaction
+          try {
+            const {
+              data: { user },
+            } = await supabase.auth.getUser();
+            if (user) {
+              await supabase.from("transactions").insert({
+                user_id: user.id,
+                tx_hash: tx.transactionHash,
+                chain_id: 8453,
+                token_symbol: "ETH",
+                amount: 0.0001,
+                status: "success",
+                token_address: null,
+              });
+            }
+          } catch (txErr) {
+            console.error("Failed to record transaction:", txErr);
+          }
+
+          setToast({
+            show: true,
+            message: "Payment successful! Opening Twitter...",
+            type: "success",
+          });
+
+          // Auto-trigger post after payment
+          setTimeout(() => openTwitterIntent(content!), 500);
+        },
+        onError: (error) => {
+          console.error("Payment failed", error);
+          setIsPosting(false);
+          setToast({
+            show: true,
+            message: "Payment failed. Please try again.",
+            type: "error",
+          });
+        },
+      });
     } catch (error) {
-      console.error("Error posting:", error);
+      console.error("Transaction preparation failed", error);
+      setIsPosting(false);
       setToast({
         show: true,
-        message: "An unexpected error occurred while posting.",
+        message: "Failed to initiate payment",
         type: "error",
       });
     }
   };
-
-  // Check for auto-post on mount/update
-  const searchParams = useSearchParams();
-
-  useEffect(() => {
-    const checkPendingPost = async () => {
-      const pending = localStorage.getItem("pending_post");
-      // If we have a pending post, and we are connected (OR we just came back from a connection flow), try to post.
-      // We check verify if the platform matches.
-      const isJustConnected = searchParams.get("connected") === "true";
-      const connectedPlatform = searchParams.get("platform");
-
-      // We allow posting if:
-      // 1. We are officially platform connected (via prop)
-      // 2. OR we just connected and the platform matches what we expect
-      const canPost =
-        isPlatformConnected ||
-        (isJustConnected && connectedPlatform === platform);
-
-      if (pending && canPost && address && !isPosting && !isSaved) {
-        // Prevent infinite loops or double posts
-        // We only post if we are NOT currently posting
-
-        try {
-          const parsed = JSON.parse(pending);
-          // Check if the pending post matches current context (optional safety)
-          // But user wants "langsung post".
-          if (parsed.platform === platform && parsed.content === content) {
-            setIsPosting(true);
-            await performPost(parsed.platform, parsed.content, address);
-            setIsPosting(false);
-          }
-        } catch (e) {
-          console.error("Error parsing pending post", e);
-          localStorage.removeItem("pending_post");
-        }
-      }
-    };
-
-    checkPendingPost();
-  }, [isPlatformConnected, address, platform, content, searchParams]);
 
   const handleSave = async () => {
     if (!isConnected) {
@@ -411,9 +419,14 @@ export function PreviewPanel({
               <path d="M3.105 2.289a.75.75 0 00-.826.95l1.414 4.925A1.5 1.5 0 004.886 9.25L10.25 10 4.886 10.75a1.5 1.5 0 00-1.193 1.086L2.279 16.76a.75.75 0 00.826.95l14.25-7.125a.75.75 0 000-1.342L3.105 2.289z" />
             </svg>
           )}
-          {isPosting ? "Posting..." : "Post Now"}
+          {isPosting
+            ? "Processing..."
+            : !isPlatformConnected
+              ? "Connect & Post"
+              : !isPaid
+                ? "Pay & Post (0.0001 ETH)"
+                : "Post Now"}
         </button>
-
         <button
           onClick={handleSave}
           disabled={!content || isSaving || isSaved}

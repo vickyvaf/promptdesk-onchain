@@ -14,8 +14,23 @@ import { PreviewPanel } from "@/components/generator/PreviewPanel";
 import { Toast } from "@/components/ui/Toast";
 
 function GeneratorContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Derive platform from URL or default to linkedin
+  const platformParam = searchParams.get("platform");
+  const selectedPlatform = platformParam || "linkedin";
+
+  const handlePlatformSelect = (platform: string) => {
+    // Update URL without reloading
+    const newParams = new URLSearchParams(searchParams.toString());
+    newParams.set("platform", platform);
+    router.push(`?${newParams.toString()}`, { scroll: false });
+  };
+
   const [prompt, setPrompt] = useState("");
-  const [selectedPlatform, setSelectedPlatform] = useState("linkedin");
+  // Removed original selectedPlatform state definition since we moved it up
+
   const [isLoading, setIsLoading] = useState(false);
   const [generatedContent, setGeneratedContent] = useState("");
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -38,7 +53,7 @@ function GeneratorContent() {
   });
 
   const account = useActiveAccount();
-  const searchParams = useSearchParams();
+  // Removed duplicate searchParams declaration since we moved it up
 
   // Load system instructions from LocalStorage on mount
   useEffect(() => {
@@ -134,28 +149,114 @@ function GeneratorContent() {
   };
 
   const [connectedPlatforms, setConnectedPlatforms] = useState<string[]>([]);
+  const [connectedUsernames, setConnectedUsernames] = useState<
+    Record<string, string>
+  >({});
 
   // Fetch connected platforms
   useEffect(() => {
     const fetchConnections = async () => {
-      if (!account?.address) return;
+      // 1. Check Cookies for Twitter (OAuth)
+      const cookies = document.cookie.split("; ");
+      const isTwitterConnected = cookies.find((row) =>
+        row.startsWith("twitter_is_connected="),
+      );
+      const twitterUsernameCookie = cookies.find((row) =>
+        row.startsWith("twitter_username="),
+      );
 
-      // If just returned from connection flow, we want to be sure we have the latest
-      // The search param 'connected' acts as a signal
-      const isJustConnected = searchParams.get("connected") === "true";
+      const platforms: string[] = [];
+      const usernames: Record<string, string> = {};
 
-      const { data, error } = await supabase
-        .from("user_connections")
-        .select("platform")
-        .eq("wallet_address", account.address);
+      if (isTwitterConnected) {
+        platforms.push("twitter");
+        if (twitterUsernameCookie) {
+          usernames["twitter"] = decodeURIComponent(
+            twitterUsernameCookie.split("=")[1],
+          );
+        }
+      }
 
-      if (!error && data) {
-        setConnectedPlatforms(data.map((c) => c.platform));
+      // 2. Check Supabase (DB)
+      if (account?.address) {
+        const { data, error } = await supabase
+          .from("user_connections")
+          .select("platform")
+          .eq("wallet_address", account.address);
+
+        if (!error && data) {
+          data.forEach((c) => {
+            if (!platforms.includes(c.platform)) {
+              platforms.push(c.platform);
+            }
+          });
+        }
+      }
+
+      setConnectedPlatforms(platforms);
+      setConnectedUsernames(usernames);
+
+      // Restore pending post if exists and we are on the correct platform
+      const urlPlatform = searchParams.get("platform");
+      const isConnectedParam = searchParams.get("connected") === "true";
+
+      if (isConnectedParam && urlPlatform && platforms.includes(urlPlatform)) {
+        // Platform selection is handled by the useEffect above
+
+        // Restore pending post if exists
+        const pendingPost = localStorage.getItem("pending_post");
+        if (pendingPost) {
+          try {
+            const parsed = JSON.parse(pendingPost);
+            if (parsed.platform === urlPlatform && parsed.content) {
+              setGeneratedContent(parsed.content);
+              setPrompt(parsed.prompt || "Auto-restored draft");
+
+              // Clear it so we don't restore it forever
+              localStorage.removeItem("pending_post");
+            }
+          } catch (e) {
+            console.error("Failed to parse pending post", e);
+          }
+        }
       }
     };
 
     fetchConnections();
   }, [account?.address, searchParams]);
+
+  const handleDisconnect = async (platform: string) => {
+    try {
+      await fetch("/api/auth/disconnect", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ platform }),
+      });
+
+      // Update local state
+      setConnectedPlatforms((prev) => prev.filter((p) => p !== platform));
+      setConnectedUsernames((prev) => {
+        const newUsernames = { ...prev };
+        delete newUsernames[platform];
+        return newUsernames;
+      });
+
+      setToast({
+        show: true,
+        message: `Disconnected from ${platform}`,
+        type: "success",
+      });
+    } catch (error) {
+      console.error("Error disconnecting:", error);
+      setToast({
+        show: true,
+        message: "Failed to disconnect",
+        type: "error",
+      });
+    }
+  };
 
   return (
     <div className="flex min-h-screen flex-col bg-zinc-50 dark:bg-black">
@@ -180,7 +281,7 @@ function GeneratorContent() {
 
               <PlatformSelector
                 selected={selectedPlatform}
-                onSelect={setSelectedPlatform}
+                onSelect={handlePlatformSelect}
                 systemInstructions={systemInstructions}
                 setSystemInstructions={setSystemInstructions}
                 isSettingsOpen={isSettingsOpen}
@@ -190,6 +291,8 @@ function GeneratorContent() {
                 onSaveInstruction={handleSaveInstruction}
                 // @ts-ignore
                 connectedPlatforms={connectedPlatforms}
+                connectedUsernames={connectedUsernames}
+                onDisconnect={handleDisconnect}
               />
 
               <button
