@@ -1,15 +1,19 @@
 "use client";
 
+import { supabase } from "@/supabase/client";
+
 import { PlatformSelector } from "@/components/generator/PlatformSelector";
 import { PromptInput } from "@/components/generator/PromptInput";
 import { Footer } from "@/components/layout/Footer";
 import { Header } from "@/components/layout/Header";
-import { useEffect, useState } from "react";
+
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useActiveAccount } from "thirdweb/react";
 import { PreviewPanel } from "@/components/generator/PreviewPanel";
 import { Toast } from "@/components/ui/Toast";
 
-export default function GeneratorPage() {
+function GeneratorContent() {
   const [prompt, setPrompt] = useState("");
   const [selectedPlatform, setSelectedPlatform] = useState("linkedin");
   const [isLoading, setIsLoading] = useState(false);
@@ -34,6 +38,7 @@ export default function GeneratorPage() {
   });
 
   const account = useActiveAccount();
+  const searchParams = useSearchParams();
 
   // Load system instructions from LocalStorage on mount
   useEffect(() => {
@@ -128,6 +133,30 @@ export default function GeneratorPage() {
     }
   };
 
+  const [connectedPlatforms, setConnectedPlatforms] = useState<string[]>([]);
+
+  // Fetch connected platforms
+  useEffect(() => {
+    const fetchConnections = async () => {
+      if (!account?.address) return;
+
+      // If just returned from connection flow, we want to be sure we have the latest
+      // The search param 'connected' acts as a signal
+      const isJustConnected = searchParams.get("connected") === "true";
+
+      const { data, error } = await supabase
+        .from("user_connections")
+        .select("platform")
+        .eq("wallet_address", account.address);
+
+      if (!error && data) {
+        setConnectedPlatforms(data.map((c) => c.platform));
+      }
+    };
+
+    fetchConnections();
+  }, [account?.address, searchParams]);
+
   return (
     <div className="flex min-h-screen flex-col bg-zinc-50 dark:bg-black">
       <Header />
@@ -159,6 +188,8 @@ export default function GeneratorPage() {
                 selectedPlatform={selectedPlatform}
                 // @ts-ignore
                 onSaveInstruction={handleSaveInstruction}
+                // @ts-ignore
+                connectedPlatforms={connectedPlatforms}
               />
 
               <button
@@ -205,6 +236,10 @@ export default function GeneratorPage() {
                 platform={selectedPlatform}
                 address={account?.address}
                 isLoading={isLoading}
+                // @ts-ignore
+                isPlatformConnected={connectedPlatforms.includes(
+                  selectedPlatform,
+                )}
               />
             </div>
           </div>
@@ -219,5 +254,13 @@ export default function GeneratorPage() {
         onClose={() => setToast((prev) => ({ ...prev, show: false }))}
       />
     </div>
+  );
+}
+
+export default function GeneratorPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <GeneratorContent />
+    </Suspense>
   );
 }

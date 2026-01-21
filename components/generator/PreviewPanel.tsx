@@ -1,11 +1,9 @@
 import { Toast } from "@/components/ui/Toast";
+import { connectToPlatform } from "@/lib/getlate";
 import { supabase } from "@/supabase/client";
-import { client } from "@/app/client";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
-import { prepareTransaction, toWei } from "thirdweb";
-import { useSendTransaction } from "thirdweb/react";
-import { defineChain } from "thirdweb/chains";
 
 interface PreviewPanelProps {
   content?: string;
@@ -14,6 +12,8 @@ interface PreviewPanelProps {
   prompt?: string;
   platform?: string;
   address?: string;
+  isLoading?: boolean;
+  isPlatformConnected?: boolean;
 }
 
 export function PreviewPanel({
@@ -24,10 +24,12 @@ export function PreviewPanel({
   platform,
   address,
   isLoading = false,
-}: PreviewPanelProps & { isLoading?: boolean }) {
+  isPlatformConnected = false,
+}: PreviewPanelProps) {
   const [isWindowFocused, setIsWindowFocused] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
+  const [isPosting, setIsPosting] = useState(false);
   const [toast, setToast] = useState<{
     show: boolean;
     message: string;
@@ -42,6 +44,110 @@ export function PreviewPanel({
   useEffect(() => {
     setIsSaved(false);
   }, [content]);
+
+  const handlePost = async () => {
+    if (!platform || !content) return;
+
+    if (!isPlatformConnected) {
+      // Save pending post for auto-posting after callback
+      localStorage.setItem(
+        "pending_post",
+        JSON.stringify({
+          platform,
+          content,
+          // We might not have address if wallet disconnected during redirect (unlikely but possible)
+          // But we need it for the API call.
+          walletAddress: address,
+        }),
+      );
+      connectToPlatform(platform);
+      return;
+    }
+
+    if (!address) {
+      setToast({
+        show: true,
+        message: "Please connect wallet first",
+        type: "error",
+      });
+      return;
+    }
+
+    setIsPosting(true);
+    await performPost(platform, content, address);
+    setIsPosting(false);
+  };
+
+  const performPost = async (p: string, c: string, addr: string) => {
+    try {
+      const { postContent } = await import("@/lib/getlate");
+      const result = await postContent(p, c, addr);
+
+      if (result.error) {
+        setToast({
+          show: true,
+          message: "Failed to post: " + result.error,
+          type: "error",
+        });
+      } else {
+        setToast({
+          show: true,
+          message: "Posted successfully to " + p,
+          type: "success",
+        });
+        // Clear pending post if successful
+        localStorage.removeItem("pending_post");
+      }
+    } catch (error) {
+      console.error("Error posting:", error);
+      setToast({
+        show: true,
+        message: "An unexpected error occurred while posting.",
+        type: "error",
+      });
+    }
+  };
+
+  // Check for auto-post on mount/update
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const checkPendingPost = async () => {
+      const pending = localStorage.getItem("pending_post");
+      // If we have a pending post, and we are connected (OR we just came back from a connection flow), try to post.
+      // We check verify if the platform matches.
+      const isJustConnected = searchParams.get("connected") === "true";
+      const connectedPlatform = searchParams.get("platform");
+
+      // We allow posting if:
+      // 1. We are officially platform connected (via prop)
+      // 2. OR we just connected and the platform matches what we expect
+      const canPost =
+        isPlatformConnected ||
+        (isJustConnected && connectedPlatform === platform);
+
+      if (pending && canPost && address && !isPosting && !isSaved) {
+        // Prevent infinite loops or double posts
+        // We only post if we are NOT currently posting
+
+        try {
+          const parsed = JSON.parse(pending);
+          // Check if the pending post matches current context (optional safety)
+          // But user wants "langsung post".
+          if (parsed.platform === platform && parsed.content === content) {
+            setIsPosting(true);
+            await performPost(parsed.platform, parsed.content, address);
+            setIsPosting(false);
+          }
+        } catch (e) {
+          console.error("Error parsing pending post", e);
+          localStorage.removeItem("pending_post");
+        }
+      }
+    };
+
+    checkPendingPost();
+  }, [isPlatformConnected, address, platform, content, searchParams]);
 
   const handleSave = async () => {
     if (!isConnected) {
@@ -97,105 +203,8 @@ export function PreviewPanel({
     return null;
   };
 
-  // Transaction hook
-  const { mutate: sendTransaction, isPending: isPaying } = useSendTransaction();
-  const [copySuccess, setCopySuccess] = useState(false);
-
-  const handleCopy = async () => {
-    if (!isConnected) {
-      setToast({
-        show: true,
-        message: "Please connect your wallet to copy content",
-        type: "error",
-      });
-      return;
-    }
-
-    if (!content) return;
-
-    // 1. Create a transaction (mock payment of 0.0001 ETH/IDRX equivalent)
-    // Sending to self to be safe and simple for demo
-    const transaction = prepareTransaction({
-      to: address || "0x0000000000000000000000000000000000000000",
-      chain: defineChain(8453), // Base Mainnet
-      client: client,
-      value: toWei("0.000003"), // Approx 0.01 USD
-    });
-
-    try {
-      sendTransaction(transaction, {
-        onSuccess: async (tx) => {
-          // 3. On success, copy to clipboard
-          try {
-            await navigator.clipboard.writeText(content);
-            setCopySuccess(true);
-
-            // Auto-save the content
-            const savedItem = await handleSave();
-
-            // Record transaction in DB
-            if (savedItem && address) {
-              try {
-                // Get user ID
-                const {
-                  data: { user },
-                } = await supabase.auth.getUser();
-
-                if (user) {
-                  await supabase.from("transactions").insert({
-                    user_id: user.id,
-                    saved_content_id: savedItem.id,
-                    tx_hash: tx.transactionHash,
-                    chain_id: 8453,
-                    token_symbol: "ETH",
-                    amount: 0.000003,
-                    status: "success",
-                    token_address: null,
-                  });
-                } else {
-                  console.warn(
-                    "User not authenticated, skipping transaction record creation (RLS might prevent anon insert)",
-                  );
-                }
-              } catch (txErr) {
-                console.error("Failed to record transaction:", txErr);
-              }
-            }
-
-            setToast({
-              show: true,
-              message: "Payment confirmed! Copied & Saved!",
-              type: "success",
-            });
-            setTimeout(() => setCopySuccess(false), 2000);
-          } catch (err) {
-            console.error("Failed to copy:", err);
-            // Even if copy fails, we still try to save context
-            handleSave();
-
-            setToast({
-              show: true,
-              message: "Payment successful (Saved), but copy failed",
-              type: "error",
-            });
-          }
-        },
-        onError: (error: any) => {
-          console.error("Transaction failed:", error);
-          setToast({
-            show: true,
-            message: "Transaction failed/rejected. Copy cancelled.",
-            type: "error",
-          });
-        },
-      });
-    } catch (error) {
-      console.error("Error initiating transaction:", error);
-    }
-  };
-
   useEffect(() => {
-    return;
+    return; // Disabled for now
     const handleFocus = () => setIsWindowFocused(true);
     const handleBlur = () => setIsWindowFocused(false);
 
@@ -209,7 +218,7 @@ export function PreviewPanel({
   }, []);
 
   useEffect(() => {
-    return;
+    return; // Disabled for now
     // Disable right-click
     const handleContextMenu = (e: MouseEvent) => {
       e.preventDefault();
@@ -366,80 +375,58 @@ export function PreviewPanel({
         )}
       </div>
 
-      <div className="border-t border-zinc-100 bg-zinc-50/50 p-4 dark:border-zinc-800 dark:bg-zinc-900/50">
+      <div className="border-t border-zinc-100 bg-zinc-50/50 p-4 dark:border-zinc-800 dark:bg-zinc-900">
         <button
-          onClick={handleCopy}
-          disabled={!content || isPaying}
-          className="flex w-full items-center justify-center gap-2 rounded-lg bg-zinc-100 py-3 text-sm font-medium text-zinc-400 transition-colors hover:bg-zinc-200 disabled:cursor-not-allowed disabled:hover:bg-zinc-100 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:disabled:hover:bg-zinc-800"
+          onClick={handlePost}
+          disabled={!content || isPosting}
+          className="mb-3 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-blue-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 dark:bg-blue-600 dark:hover:bg-blue-700"
         >
-          {isPaying ? (
-            <>
-              <svg
-                className="h-4 w-4 animate-spin text-zinc-500"
-                xmlns="http://www.w3.org/2000/svg"
+          {isPosting ? (
+            <svg
+              className="h-4 w-4 animate-spin text-white"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
                 fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                ></circle>
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                ></path>
-              </svg>
-              Processing...
-            </>
-          ) : copySuccess ? (
-            <>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 20 20"
+              />
+              <path
+                className="opacity-75"
                 fill="currentColor"
-                className="h-4 w-4 text-green-500"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                  clipRule="evenodd"
-                />
-              </svg>
-              Copied!
-            </>
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              />
+            </svg>
           ) : (
-            <>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-                className="h-4 w-4"
-              >
-                <path d="M7 3.5A1.5 1.5 0 018.5 2h3.879a1.5 1.5 0 011.06.44l3.122 3.12A1.5 1.5 0 0117 6.622V12.5a1.5 1.5 0 01-1.5 1.5h-1v-3.379a3 3 0 00-.879-2.121L10.5 5.379A3 3 0 008.379 4.5H7v-1z" />
-                <path d="M4.5 6A1.5 1.5 0 003 7.5v9A1.5 1.5 0 004.5 18h7a1.5 1.5 0 001.5-1.5v-5.879a.5.5 0 01.146-.354l.854-.853A.5.5 0 0114.499 10h-2.378A1.5 1.5 0 0010.5 11.5v2.379a.5.5 0 01-1.002 0V9.879a.5.5 0 01.146-.353l.854-.854a.5.5 0 01.354-.146H4.5z" />
-              </svg>
-              Pay & Copy
-            </>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              className="h-4 w-4"
+            >
+              <path d="M3.105 2.289a.75.75 0 00-.826.95l1.414 4.925A1.5 1.5 0 004.886 9.25L10.25 10 4.886 10.75a1.5 1.5 0 00-1.193 1.086L2.279 16.76a.75.75 0 00.826.95l14.25-7.125a.75.75 0 000-1.342L3.105 2.289z" />
+            </svg>
           )}
+          {isPosting ? "Posting..." : "Post Now"}
         </button>
+
         <button
           onClick={handleSave}
           disabled={!content || isSaving || isSaved}
-          className={`mt-2 flex w-full items-center justify-center gap-2 rounded-lg py-3 text-sm font-medium text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+          className={`flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-semibold transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 ${
             isSaved
-              ? "bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700"
-              : "bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700"
+              ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+              : "border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-black dark:text-zinc-300 dark:hover:bg-zinc-900"
           }`}
         >
           {isSaving ? (
             <>
               <svg
-                className="h-4 w-4 animate-spin text-white"
+                className="h-4 w-4 animate-spin"
                 xmlns="http://www.w3.org/2000/svg"
                 fill="none"
                 viewBox="0 0 24 24"

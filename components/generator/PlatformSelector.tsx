@@ -9,6 +9,7 @@ interface PlatformSelectorProps {
   setIsSettingsOpen: (open: boolean) => void;
   selectedPlatform: string;
   onSaveInstruction?: (platform: string, instruction: string) => void;
+  connectedPlatforms?: string[];
 }
 
 const platforms = [
@@ -57,16 +58,14 @@ const platforms = [
     icon: (
       <svg
         xmlns="http://www.w3.org/2000/svg"
-        fill="none"
         viewBox="0 0 24 24"
-        strokeWidth={1.5}
-        stroke="currentColor"
+        fill="currentColor"
         className="h-6 w-6"
       >
         <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418"
+          fillRule="evenodd"
+          d="M12.75 9.176A3.004 3.004 0 009.68 12a3.004 3.004 0 003.076 2.824c.776 0 1.488-.308 2-.806v.774c0 1.487-1.168 2.032-2.122 2.032-1.928 0-2.828-1.3-2.828-3.056V11.2a7.614 7.614 0 017.584-7.643c4.276 0 7.576 3.4 7.576 7.683 0 4.604-3.528 7.76-8.24 7.76-4.632 0-7.892-3.112-7.892-7.66C8.832 6.58 11.996 3.5 16.036 3.5c1.676 0 3.208.544 4.384 1.464l1.1-1.38A8.832 8.832 0 0016.036 1.7C10.968 1.7 6.94 5.568 6.94 11.34c0 5.688 4.096 9.46 9.696 9.46 5.864 0 10.24-3.876 10.24-9.56 0-5.188-4.1-9.38-9.332-9.38-5.152 0-9.284 4.076-9.284 9.336 0 2.664.996 4.968 4.416 4.968 2.924 0 3.824-2.108 3.824-3.72v-1.124a4.708 4.708 0 01-3.75 1.796zm.132-5.748c1.692 0 2.9.992 2.9 2.88 0 1.832-1.208 2.82-2.9 2.82-1.748 0-2.956-1.024-2.956-2.82 0-1.744 1.18-2.88 2.956-2.88z"
+          clipRule="evenodd"
         />
       </svg>
     ),
@@ -77,17 +76,11 @@ const platforms = [
     icon: (
       <svg
         xmlns="http://www.w3.org/2000/svg"
-        fill="none"
         viewBox="0 0 24 24"
-        strokeWidth={1.5}
-        stroke="currentColor"
-        className="h-6 w-6"
+        fill="currentColor"
+        className="h-5 w-5"
       >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M9 13.5l3 3m0 0l3-3m-3 3v-6m1.06-4.19l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z"
-        />
+        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
       </svg>
     ),
   },
@@ -102,6 +95,7 @@ export function PlatformSelector({
   setIsSettingsOpen,
   selectedPlatform,
   onSaveInstruction,
+  connectedPlatforms = [],
 }: PlatformSelectorProps) {
   return (
     <div>
@@ -160,12 +154,28 @@ export function PlatformSelector({
           <button
             key={platform.id}
             onClick={() => onSelect(platform.id)}
-            className={`flex flex-col items-center justify-center gap-2 rounded-xl border p-4 transition-all hover:bg-zinc-50 dark:hover:bg-zinc-900 ${
+            className={`flex flex-col items-center justify-center gap-2 rounded-xl border p-4 transition-all hover:bg-zinc-50 dark:hover:bg-zinc-900 relative ${
               selected === platform.id
                 ? "border-blue-500 ring-1 ring-blue-500 bg-blue-50/50 dark:bg-blue-900/20"
                 : "border-zinc-200 bg-white dark:border-zinc-800 dark:bg-black"
             }`}
           >
+            {connectedPlatforms.includes(platform.id) && (
+              <div className="absolute top-2 right-2">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  className="h-4 w-4 text-green-500"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </div>
+            )}
             <div
               className={`${
                 selected === platform.id ? "text-blue-500" : "text-zinc-500"
