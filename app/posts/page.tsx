@@ -387,7 +387,9 @@ function PostsContent() {
                             <PlatformBadge
                               key={_id}
                               platform={platform}
-                              username={accountId?.username}
+                              username={
+                                accountId?.username || accountId?.displayName
+                              }
                             />
                           );
                         })}
@@ -534,9 +536,6 @@ function PlatformBadge({
   platform: string;
   username: string;
 }) {
-  console.log("platform", platform);
-  console.log("username", username);
-
   return (
     <span
       className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
