@@ -2,6 +2,10 @@
 
 Social Flow is an AI-powered platform designed to streamline social media content generation and automated posting. It integrates on-chain payment mechanisms for premium features and content management.
 
+## Preview
+<img width="1440" height="787" alt="Screenshot 2026-01-22 at 15 03 45" src="https://github.com/user-attachments/assets/bee2625b-3612-43bf-b5ad-6b6cdcf8c493" />
+
+
 ## Key Features
 
 - **AI Content Generation**: Leverage powerful AI to create engaging posts for various platforms.
