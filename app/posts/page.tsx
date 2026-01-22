@@ -304,9 +304,6 @@ export default function PostsPage() {
           {/* List */}
           <div className="space-y-4">
             {posts.map((post) => {
-              // @ts-ignore
-              const platform = post?.platforms?.[0]?.platform;
-
               return (
                 <div
                   key={post._id || post.id || Math.random().toString()}
@@ -315,25 +312,12 @@ export default function PostsPage() {
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1">
                       <div className="mb-2 flex items-center gap-2">
-                        <span
-                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${
-                            platform === "twitter"
-                              ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
-                              : platform === "threads"
-                                ? "bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-300"
-                                : platform === "linkedin"
-                                  ? "bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300"
-                                  : platform === "instagram"
-                                    ? "bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300"
-                                    : "bg-gray-100 text-gray-800"
-                          }`}
-                        >
-                          {PLATFORM_ICONS[platform] && (
-                            <span className="flex items-center justify-center">
-                              {PLATFORM_ICONS[platform]}
-                            </span>
-                          )}
-                        </span>
+                        {/* @ts-ignore */}
+                        {post.platforms?.map(({ platform, _id }) => {
+                          return (
+                            <PlatformBadge key={_id} platform={platform} />
+                          );
+                        })}
                         <span
                           className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${
                             post.status === "published"
@@ -435,5 +419,29 @@ export default function PostsPage() {
 
       <Footer />
     </div>
+  );
+}
+
+function PlatformBadge({ platform }: { platform: string }) {
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${
+        platform === "twitter"
+          ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
+          : platform === "threads"
+            ? "bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-300"
+            : platform === "linkedin"
+              ? "bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300"
+              : platform === "instagram"
+                ? "bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300"
+                : "bg-gray-100 text-gray-800"
+      }`}
+    >
+      {PLATFORM_ICONS[platform] && (
+        <span className="flex items-center justify-center">
+          {PLATFORM_ICONS[platform]}
+        </span>
+      )}
+    </span>
   );
 }

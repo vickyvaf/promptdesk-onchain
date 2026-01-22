@@ -15,16 +15,11 @@ export async function DELETE(
       );
     }
 
-    console.log(`Attempting to delete post with ID: ${id}`);
-
     const late = getLateClient();
 
     // Call the delete method on the SDK
     try {
-      console.log("Calling late.posts.deletePost...");
-
       await late.posts.deletePost({ path: { postId: id } });
-      console.log(`Successfully deleted post with ID: ${id}`);
     } catch (sdkError: any) {
       console.error("SDK Error during delete:", sdkError);
       throw sdkError;
