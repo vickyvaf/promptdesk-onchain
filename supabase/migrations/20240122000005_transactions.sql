@@ -22,6 +22,7 @@ create table public.transactions (
   -- payment value
   amount numeric not null,           -- raw amount (sudah disesuaikan decimals)
   credits_granted integer not null,  -- credit yg diberikan
+  status text not null default 'success', -- success, pending, failed
 
   created_at timestamptz default now(),
 
