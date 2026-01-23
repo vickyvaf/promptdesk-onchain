@@ -151,15 +151,6 @@ function GeneratorContent() {
       return;
     }
 
-    if (credits !== null && credits <= 0) {
-      setToast({
-        show: true,
-        message: "You have 0 credits. Please top up to continue.",
-        type: "error",
-      });
-      return;
-    }
-
     if (!prompt) return;
 
     setIsLoading(true);

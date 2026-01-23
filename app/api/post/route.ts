@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
         payload.publishNow = true;
       }
 
-      // 1. Deduct Credit IMMEDIATELY
+      // Deduct Credit
       const { error: updateError } = await supabaseClient.rpc("deduct_credit", {
         p_user_id: user.id,
       });
@@ -166,9 +166,6 @@ export async function POST(request: NextRequest) {
         // but the prompt asked to "directly send all to table getlate_post", so we simplify.
       }
 
-      // 3. Deduct Credit (MOVED to before external call)
-      // This block is now handled earlier
-
       return NextResponse.json({ success: true, result: postResult });
     } catch (lateError: any) {
       console.error("Late API Error:", lateError);
@@ -176,21 +173,32 @@ export async function POST(request: NextRequest) {
       // REFUND CREDIT if Late API fails
       try {
         console.log("Refunding credit due to API failure...");
-        // Attempts to refund via RPC usually, but for simplicity here we just increment manually
-        // or effectively 'undo' the deduction.
-        // Ideally we have a 'refund_credit' RPC, but manual is fine for now as fallback.
+        const { error: refundError } = await supabaseClient.rpc(
+          "refund_credit",
+          {
+            p_user_id: user.id,
+          },
+        );
 
-        const { data: currentCredits } = await supabaseClient
-          .from("user_credits")
-          .select("credits_remaining")
-          .eq("user_id", user.id)
-          .maybeSingle();
-
-        if (currentCredits) {
-          await supabaseClient
+        if (refundError) {
+          console.warn(
+            "RPC refund_credit failed, falling back to manual update",
+            refundError,
+          );
+          const { data: currentCredits } = await supabaseClient
             .from("user_credits")
-            .update({ credits_remaining: currentCredits.credits_remaining + 1 })
-            .eq("user_id", user.id);
+            .select("credits_remaining")
+            .eq("user_id", user.id)
+            .maybeSingle();
+
+          if (currentCredits) {
+            await supabaseClient
+              .from("user_credits")
+              .update({
+                credits_remaining: currentCredits.credits_remaining + 1,
+              })
+              .eq("user_id", user.id);
+          }
         }
       } catch (refundError) {
         console.error("Failed to refund credit after API error", refundError);

@@ -17,8 +17,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // 1. Credit Check Removed
-
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
     const lengthConstraint = `Max with ${MAX_LENGTH_CONTENT} char length.`;
@@ -35,7 +33,7 @@ export async function POST(req: Request) {
     const response = result.response;
     const text = response.text();
 
-    // 2. Deduct Credit Removed
+    // Credit deduction removed from generation
 
     return NextResponse.json({ result: text });
   } catch (error) {
