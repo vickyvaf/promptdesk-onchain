@@ -62,11 +62,18 @@ export function TopUpModal({
   if (!isOpen) return null;
 
   const handlePay = async () => {
+    if (!activeAccount) {
+      setToast({
+        show: true,
+        message: "Please connect your wallet to continue.",
+        type: "error",
+      });
+      return;
+    }
+
     setIsProcessing(true);
 
     try {
-      /* 
-      // Skip wallet transaction for now
       const transaction = prepareTransaction({
         to:
           process.env.NEXT_PUBLIC_SERVER_WALLET_ADDRESS ||
@@ -78,54 +85,67 @@ export function TopUpModal({
 
       sendTransaction(transaction, {
         onSuccess: async (tx) => {
-          // logic remains below
-        }
+          try {
+            // 1. Record Transaction
+            const { error: txError } = await supabase
+              .from("transactions")
+              .insert({
+                user_id: userId,
+                wallet_address: activeAccount.address,
+                chain: "base",
+                tx_hash: tx.transactionHash,
+                token_symbol: "ETH",
+                token_decimals: 18,
+                amount: parseFloat(selectedPackage.ethAmount),
+                credits_granted: selectedPackage.credits,
+                status: "success",
+              });
+
+            if (txError) throw txError;
+
+            // 2. Update Credits using RPC
+            const { error: creditError } = await supabase.rpc("topup_credit", {
+              p_user_id: userId,
+              p_amount: selectedPackage.credits,
+            });
+
+            if (creditError) throw creditError;
+
+            setIsSuccess(true);
+            if (onSuccess) onSuccess();
+
+            // Wait a bit before closing
+            setTimeout(() => {
+              onClose();
+              setIsProcessing(false);
+              setTimeout(() => setIsSuccess(false), 300);
+            }, 3000);
+          } catch (error) {
+            console.error("Error updating credits after payment:", error);
+            setToast({
+              show: true,
+              message:
+                "Payment successful but failed to update credits. Please contact support.",
+              type: "error",
+            });
+            setIsProcessing(false);
+          }
+        },
+        onError: (error) => {
+          console.error("Transaction failed:", error);
+          setToast({
+            show: true,
+            message: "Transaction failed. Please try again.",
+            type: "error",
+          });
+          setIsProcessing(false);
+        },
       });
-      */
-
-      // Directly update credit flow
-      // 1. Record Transaction (Mocking tx_hash since we skip wallet)
-      const mockTxHash = `manual_${Math.random().toString(36).substring(2, 12)}`;
-
-      const { error: txError } = await supabase.from("transactions").insert({
-        user_id: userId,
-        wallet_address:
-          activeAccount?.address ||
-          "0x0000000000000000000000000000000000000000",
-        chain: "manual",
-        tx_hash: mockTxHash,
-        token_symbol: "ETH",
-        token_decimals: 18,
-        amount: parseFloat(selectedPackage.ethAmount),
-        credits_granted: selectedPackage.credits,
-        status: "success",
-      });
-
-      if (txError) throw txError;
-
-      // 2. Update Credits using RPC for safety and logging
-      const { error: creditError } = await supabase.rpc("topup_credit", {
-        p_user_id: userId,
-        p_amount: selectedPackage.credits,
-      });
-
-      if (creditError) throw creditError;
-
-      setIsSuccess(true);
-      if (onSuccess) onSuccess();
-
-      // Wait a bit before closing
-      setTimeout(() => {
-        onClose();
-        setIsProcessing(false);
-        // Reset success state for next time the modal opens (though it might unmount anyway)
-        setTimeout(() => setIsSuccess(false), 300);
-      }, 3000);
     } catch (err: any) {
-      console.error("Failed to process topup:", err);
+      console.error("Failed to prepare topup:", err);
       setToast({
         show: true,
-        message: "Failed to update credits. Please try again.",
+        message: "Failed to prepare transaction. Please try again.",
         type: "error",
       });
       setIsProcessing(false);
