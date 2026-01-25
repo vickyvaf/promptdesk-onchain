@@ -42,7 +42,7 @@ export function UserAuthProfile() {
   const [imgError, setImgError] = useState(false);
 
   const { data: balanceData } = useWalletBalance({
-    chain: defineChain(8453), // Base
+    chain: defineChain(84532), // Base Sepolia
     address: account?.address,
     client: client,
   });
@@ -214,7 +214,7 @@ export function UserAuthProfile() {
       await connect({
         client,
         wallets,
-        chain: defineChain(8453),
+        chain: defineChain(84532),
         size: "compact",
       });
     } catch (err) {

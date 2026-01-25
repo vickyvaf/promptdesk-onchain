@@ -1,8 +1,8 @@
+import { WalletWatcher } from "@/components/wallet-watcher";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
 import ThirdwebProviderWrapper from "../components/ThirdwebProviderWrapper";
-import { WalletWatcher } from "@/components/wallet-watcher";
+import "./globals.css";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -19,16 +19,17 @@ export async function generateMetadata(): Promise<Metadata> {
     title: "Social Flow - Create Your Content",
     description: "Create your content with AI",
     other: {
+      "base:app_id": "6975dc273a92926b661fd495",
       "fc:miniapp": JSON.stringify({
         version: "next",
-        imageUrl: "https://dprompt.netlify.app/og.png",
+        imageUrl: "https://dprompt.netlify.app/vercel.svg",
         button: {
           title: `Launch Your Social Flow`,
           action: {
             type: "launch_miniapp",
             name: "Social Flow",
             url: "https://dprompt.netlify.app",
-            splashImageUrl: "https://dprompt.netlify.app/splash.png",
+            splashImageUrl: "https://dprompt.netlify.app/vercel.svg",
             splashBackgroundColor: "#000000",
           },
         },

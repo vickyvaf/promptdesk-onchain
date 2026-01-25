@@ -2,6 +2,7 @@
 
 import { ThirdwebProvider, AutoConnect } from "thirdweb/react";
 import { client } from "@/lib/client";
+import { baseSepolia } from "thirdweb/chains";
 
 export default function ThirdwebProviderWrapper({
   children,
@@ -10,7 +11,7 @@ export default function ThirdwebProviderWrapper({
 }) {
   return (
     <ThirdwebProvider>
-      <AutoConnect client={client} />
+      <AutoConnect client={client} chain={baseSepolia} />
       {children}
     </ThirdwebProvider>
   );

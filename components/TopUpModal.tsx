@@ -78,7 +78,7 @@ export function TopUpModal({
         to:
           process.env.NEXT_PUBLIC_SERVER_WALLET_ADDRESS ||
           "0x0000000000000000000000000000000000000000",
-        chain: defineChain(8453), // Base Mainnet
+        chain: defineChain(84532), // Base Sepolia
         client: client,
         value: toWei(selectedPackage.ethAmount),
       });

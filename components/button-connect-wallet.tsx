@@ -9,7 +9,7 @@ export function ButtonConnectWallet() {
     <div className="flex justify-center border border-zinc-200 dark:border-zinc-800 rounded-full overflow-hidden">
       <ConnectButton
         client={client}
-        chain={defineChain(8453)}
+        chain={defineChain(84532)}
         connectButton={{
           label: "Connect Wallet",
           style: {

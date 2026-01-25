@@ -30,16 +30,16 @@ export function ConnectWalletState() {
       </p>
       <ConnectButton
         client={client}
-        chains={[defineChain(8453)]} // Base
+        chains={[defineChain(84532)]} // Base Sepolia
         theme={"dark"}
         connectModal={{
           size: "compact",
         }}
         appMetadata={{
-          name: "SocialFlow",
-          url: "https://promptdesk.xyz", // Replace with your actual URL
+          name: "Social Flow",
+          url: "https://dprompt.netlify.app",
           description:
-            "Audit and track your crypto powered content generations",
+            "Automate your content with AI and monetize on-chain effortlessly.",
         }}
       />
     </div>
