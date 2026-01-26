@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
   // Late redirects with ?connected=twitter (or similar)
   if (!connected) {
     return NextResponse.redirect(
-      new URL("/generator?error=twitter_connection_failed", request.url),
+      new URL("/?error=twitter_connection_failed", request.url),
     );
   }
 
@@ -38,12 +38,12 @@ export async function GET(request: NextRequest) {
 
     if (!twitterAccount) {
       return NextResponse.redirect(
-        new URL("/generator?error=twitter_account_not_found", request.url),
+        new URL("/?error=twitter_account_not_found", request.url),
       );
     }
 
     const response = NextResponse.redirect(
-      new URL("/generator?connected=true&platform=twitter", request.url),
+      new URL("/?connected=true&platform=twitter", request.url),
     );
 
     // Set cookies for UI and future use
@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("Error in Twitter callback:", error);
     return NextResponse.redirect(
-      new URL("/generator?error=callback_error", request.url),
+      new URL("/?error=callback_error", request.url),
     );
   }
 }

@@ -12,7 +12,7 @@ export function Header() {
   const isActive = (path: string) => pathname === path;
 
   const navLinks = [
-    { href: "/generator", label: "Generator" },
+    { href: "/", label: "Generator" },
     { href: "/posts", label: "Posts" },
     { href: "/transactions", label: "Transactions" },
   ];
@@ -24,7 +24,7 @@ export function Header() {
           {/* Mobile Menu Button */}
           <button
             onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className="flex md:hidden items-center justify-center p-2 text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white transition-colors"
+            className="flex md:hidden items-center justify-center text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white transition-colors"
             aria-label="Toggle menu"
           >
             {isMenuOpen ? (

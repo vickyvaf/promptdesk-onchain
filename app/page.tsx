@@ -1,15 +1,58 @@
 "use client";
 
-import { UserAuthProfile } from "@/components/user-auth-profile";
 import { supabase } from "@/supabase/client";
+import { PlatformSelector } from "@/components/generator/PlatformSelector";
+import { PromptInput } from "@/components/generator/PromptInput";
+import { Footer } from "@/components/layout/Footer";
+import { Header } from "@/components/layout/Header";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useActiveAccount } from "thirdweb/react";
+import { PreviewPanel } from "@/components/generator/PreviewPanel";
+import { Toast } from "@/components/ui/Toast";
 import { sdk } from "@farcaster/miniapp-sdk";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
 
-export default function Home() {
+function GeneratorContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
+  // Derive platform from URL or default to twitter
+  const platformParam = searchParams.get("platform");
+  const selectedPlatform = platformParam || "twitter";
+
+  const handlePlatformSelect = (platform: string) => {
+    // Update URL without reloading
+    const newParams = new URLSearchParams(searchParams.toString());
+    newParams.set("platform", platform);
+    router.push(`?${newParams.toString()}`, { scroll: false });
+  };
+
+  const [prompt, setPrompt] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [generatedContent, setGeneratedContent] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [toast, setToast] = useState<{
+    show: boolean;
+    message: string;
+    type: "success" | "error";
+  }>({
+    show: false,
+    message: "",
+    type: "success",
+  });
+  const [systemInstructions, setSystemInstructions] = useState<
+    Record<string, string>
+  >({
+    linkedin: `You are a professional LinkedIn content creator. Create detailed, insightful posts that focus on industry trends, professional development, and business value. Use a professional yet engaging tone. Include relevant hashtags and structure the post for maximum readability.`,
+    instagram: `You are an Instagram content expert. Create visually descriptive and engaging captions. Use emojis, a casual and fun tone, and include a mix of popular and niche hashtags. Focus on storytelling and encouraging audience interaction.`,
+    threads: `You are a Threads enthusiast. Create short, conversational, and punchy posts that spark discussion. Keep it concise, authentic, and slightly informal. Encourage replies and engagement.`,
+    twitter: `You are a Twitter power user. Create a single, punchy tweet. Do NOT use threads. Focus on viral potential.`,
+  });
+
+  const account = useActiveAccount();
+
+  // Dark mode effect from original page.tsx
   useEffect(() => {
     try {
       const prefersDark =
@@ -20,259 +63,379 @@ export default function Home() {
     } catch (e) {}
   }, []);
 
-  useEffect(() => {
-    async function checkUser() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user) {
-        router.push("/generator");
-      }
-    }
-    checkUser();
-  }, [router]);
-
+  // Farcaster SDK effect from original page.tsx
   useEffect(() => {
     sdk.actions.ready();
   }, []);
 
+  // Load system instructions from LocalStorage on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("promptdesk_system_instructions");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setSystemInstructions((prev) => ({
+          ...prev,
+          ...parsed,
+        }));
+      }
+    } catch (error) {
+      console.error(
+        "Error loading system instructions from localStorage:",
+        error,
+      );
+    }
+  }, []);
+
+  const handleSaveInstruction = (platform: string, instruction: string) => {
+    try {
+      const newInstructions = {
+        ...systemInstructions,
+        [platform]: instruction,
+      };
+
+      setSystemInstructions(newInstructions);
+      localStorage.setItem(
+        "promptdesk_system_instructions",
+        JSON.stringify(newInstructions),
+      );
+    } catch (error: any) {
+      console.error("Error saving to localStorage:", error);
+      setToast({
+        show: true,
+        message: "Failed to save instruction locally",
+        type: "error",
+      });
+    }
+  };
+
+  const [user, setUser] = useState<any>(null);
+  const [credits, setCredits] = useState<number | null>(null);
+
+  const fetchCredits = async (userId: string) => {
+    try {
+      const res = await fetch(`/api/user/profile?userId=${userId}`);
+      const data = await res.json();
+      if (data.credits !== undefined) {
+        setCredits(data.credits);
+      }
+    } catch (err) {
+      console.error("Failed to fetch credits:", err);
+    }
+  };
+
+  useEffect(() => {
+    // Check Supabase session
+    async function getSession() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      setUser(user);
+      if (user) {
+        fetchCredits(user.id);
+      }
+    }
+    getSession();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
+      if (currentUser) {
+        fetchCredits(currentUser.id);
+      } else {
+        setCredits(null);
+        // Removed router.push("/") because we are already at the root
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const isConnected = !!user;
+
+  const handleGenerate = async () => {
+    if (!isConnected) {
+      setToast({
+        show: true,
+        message: "Please sign in with Google to generate content",
+        type: "error",
+      });
+      return;
+    }
+
+    if (!prompt) return;
+
+    setIsLoading(true);
+    setIsEditing(false);
+    setGeneratedContent("");
+
+    try {
+      const response = await fetch("/api/generate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          prompt,
+          platform: selectedPlatform,
+          systemInstruction: systemInstructions[selectedPlatform],
+          userId: user?.id,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.result) {
+        setGeneratedContent(data.result);
+        if (user) fetchCredits(user.id);
+        window.dispatchEvent(new Event("creditsUpdated"));
+      } else {
+        console.error("Failed to generate content");
+        setToast({
+          show: true,
+          message:
+            data.message || "Failed to generate content. Please try again.",
+          type: "error",
+        });
+      }
+    } catch (error) {
+      console.error("Error generating content:", error);
+      setToast({
+        show: true,
+        message: "Error generating content. Please try again.",
+        type: "error",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const [connectedPlatforms, setConnectedPlatforms] = useState<string[]>([]);
+  const [connectedUsernames, setConnectedUsernames] = useState<
+    Record<string, string>
+  >({});
+
+  // Fetch connected platforms
+  useEffect(() => {
+    const fetchConnections = async () => {
+      const cookies = document.cookie.split("; ");
+      const isTwitterConnected = cookies.find((row) =>
+        row.startsWith("twitter_is_connected="),
+      );
+      const twitterUsernameCookie = cookies.find((row) =>
+        row.startsWith("twitter_username="),
+      );
+
+      const platforms: string[] = [];
+      const usernames: Record<string, string> = {};
+
+      if (isTwitterConnected) {
+        platforms.push("twitter");
+        if (twitterUsernameCookie) {
+          usernames["twitter"] = decodeURIComponent(
+            twitterUsernameCookie.split("=")[1],
+          );
+        }
+      }
+
+      const isThreadsConnected = cookies.find((row) =>
+        row.startsWith("threads_is_connected="),
+      );
+      const threadsUsernameCookie = cookies.find((row) =>
+        row.startsWith("threads_username="),
+      );
+
+      if (isThreadsConnected) {
+        platforms.push("threads");
+        if (threadsUsernameCookie) {
+          usernames["threads"] = decodeURIComponent(
+            threadsUsernameCookie.split("=")[1],
+          );
+        }
+      }
+
+      setConnectedPlatforms(platforms);
+      setConnectedUsernames(usernames);
+
+      const urlPlatform = searchParams.get("platform");
+      const isConnectedParam = searchParams.get("connected") === "true";
+
+      if (isConnectedParam && urlPlatform && platforms.includes(urlPlatform)) {
+        const pendingPost = localStorage.getItem("pending_post");
+        if (pendingPost) {
+          try {
+            const parsed = JSON.parse(pendingPost);
+            if (parsed.platform === urlPlatform && parsed.content) {
+              setGeneratedContent(parsed.content);
+              setPrompt(parsed.prompt || "Auto-restored draft");
+              localStorage.removeItem("pending_post");
+            }
+          } catch (e) {
+            console.error("Failed to parse pending post", e);
+          }
+        }
+      }
+    };
+
+    fetchConnections();
+  }, [account?.address, searchParams]);
+
+  const handleDisconnect = async (platform: string) => {
+    try {
+      await fetch("/api/auth/disconnect", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ platform }),
+      });
+
+      setConnectedPlatforms((prev) => prev.filter((p) => p !== platform));
+      setConnectedUsernames((prev) => {
+        const newUsernames = { ...prev };
+        delete newUsernames[platform];
+        return newUsernames;
+      });
+
+      setToast({
+        show: true,
+        message: `Disconnected from ${platform}`,
+        type: "success",
+      });
+    } catch (error) {
+      console.error("Error disconnecting:", error);
+      setToast({
+        show: true,
+        message: "Failed to disconnect",
+        type: "error",
+      });
+    }
+  };
+
+  const handleConnect = (platform: string) => {
+    window.location.href = `/api/auth/${platform}`;
+  };
+
   return (
-    <main className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
-      <header className="sticky top-0 z-50 bg-white/80 dark:bg-[var(--background-dark)]/80 backdrop-blur-md border-b border-[#f0f0f4] dark:border-white/10">
-        <div className="flex items-center justify-between p-4 max-w-7xl mx-auto">
-          <div className="flex items-center gap-2">
-            <div className="bg-[#3b82f6] p-1.5 rounded-lg" />
-            <h1 className="text-[var(--foreground)] dark:text-white text-lg font-bold leading-tight">
-              Social Flow
-            </h1>
-          </div>
-          <UserAuthProfile />
-        </div>
-      </header>
+    <div className="flex min-h-screen flex-col bg-zinc-50 dark:bg-black">
+      <Header />
 
-      <div className="max-w-7xl mx-auto">
-        <section className="px-4 py-12 md:py-20">
-          <div className="flex flex-col gap-8 md:flex-row md:items-center">
-            <div className="flex flex-col gap-6 md:w-1/2">
-              <div className="flex flex-col gap-4">
-                <h1 className="text-4xl md:text-6xl font-black leading-tight tracking-[-0.03em] text-[var(--foreground)] dark:text-white">
-                  Social Flow: The Future of AI Social Media
+      <main className="flex-1 p-4 sm:px-6 lg:px-8">
+        <div className="container mx-auto max-w-7xl">
+          <div className="grid gap-8 lg:grid-cols-2">
+            <div className="flex flex-col gap-6 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-800">
+              <div className="flex items-center justify-between">
+                <h1 className="text-lg md:text-2xl font-bold text-zinc-900 dark:text-white">
+                  Automate your social media posts
                 </h1>
-                <p className="text-[#616189] dark:text-gray-400 text-lg">
-                  Automate your presence and monetize on-chain effortlessly with
-                  AI-driven content generation and seamless Web3 integration.
-                </p>
               </div>
 
-              <div className="flex flex-col sm:flex-row gap-4">
-                <Link
-                  href="/generator"
-                  className="flex items-center justify-center bg-[#3b82f6] hover:bg-[#2563eb] text-white h-14 px-8 rounded-xl font-bold text-lg hover:shadow-lg transition-all"
-                >
-                  Get Started
-                </Link>
-              </div>
-            </div>
+              <PromptInput
+                value={prompt}
+                onChange={setPrompt}
+                isConnected={isConnected}
+              />
 
-            <div className="md:w-1/2">
-              <div className="relative">
-                <div className="absolute -inset-4 bg-[#3b82f6]/20 rounded-full blur-3xl opacity-30"></div>
-                <div className="relative w-full aspect-square md:aspect-video rounded-2xl overflow-hidden shadow-2xl">
-                  <div className="w-full h-full bg-gradient-to-br from-[#3b82f6] via-[#2563eb] to-[#111118] flex items-center justify-center p-8">
-                    <span className="material-symbols-outlined text-[120px] text-white/20">
-                      auto_awesome
-                    </span>
-                  </div>
+              <PlatformSelector
+                selected={selectedPlatform}
+                onSelect={handlePlatformSelect}
+                systemInstructions={systemInstructions}
+                setSystemInstructions={setSystemInstructions}
+                isSettingsOpen={isSettingsOpen}
+                setIsSettingsOpen={setIsSettingsOpen}
+                selectedPlatform={selectedPlatform}
+                // @ts-ignore
+                onSaveInstruction={handleSaveInstruction}
+                // @ts-ignore
+                connectedPlatforms={connectedPlatforms}
+                connectedUsernames={connectedUsernames}
+                onDisconnect={handleDisconnect}
+                onConnect={handleConnect}
+                isConnected={isConnected}
+              />
+
+              <button
+                onClick={handleGenerate}
+                disabled={isLoading || !prompt}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3.5 text-base font-semibold text-white transition-all hover:bg-blue-700 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLoading ? "Generating..." : "Generate"}
+              </button>
+
+              <div className="mt-2 flex items-center gap-3 rounded-lg border border-zinc-100 p-4 dark:border-zinc-800">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-50 dark:bg-green-900/20">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    className="h-5 w-5 text-green-600 dark:text-green-400"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M10 2a8 8 0 100 16 8 8 0 000-16zm3.857 5.428a.75.75 0 00-1.214-.856L9.336 9.879 7.357 7.857a.75.75 0 00-1.072 1.05l2.536 2.536a.75.75 0 001.072 0l4.964-5.015z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </div>
+                <div>
+                  <h4 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                    Secure Transactions
+                  </h4>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    Payments are processed directly via smart contracts.
+                  </p>
                 </div>
               </div>
             </div>
-          </div>
-        </section>
 
-        <section className="py-12 px-4">
-          <h2 className="text-[var(--foreground)] dark:text-white text-4xl md:text-5xl font-black mb-8 text-center">
-            Core Strengths
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-white dark:bg-white/5 p-6 rounded-2xl border border-[#f0f0f4] dark:border-white/10 shadow-sm hover:shadow-md transition-shadow">
-              <div className="w-full aspect-video rounded-xl mb-6 bg-[#3b82f6]/5 flex items-center justify-center overflow-hidden">
-                <div className="bg-white dark:bg-[var(--background-dark)] p-6 rounded-2xl shadow-xl flex items-center gap-4 border border-[#f0f0f4] dark:border-white/10">
-                  <span className="material-symbols-outlined text-[#3b82f6] text-4xl">
-                    neurology
-                  </span>
-                  <div>
-                    <div className="h-2 w-24 bg-[#3b82f6]/20 rounded-full mb-2"></div>
-                    <div className="h-2 w-16 bg-[#3b82f6]/10 rounded-full"></div>
-                  </div>
-                </div>
-              </div>
-              <h3 className="text-xl font-bold mb-2 text-[var(--foreground)] dark:text-white">
-                AI Turning
-              </h3>
-              <p className="text-[#616189] dark:text-gray-400">
-                Transform your raw ideas into viral, engagement-optimized posts
-                using advanced LLMs tailored for social platforms.
-              </p>
-            </div>
-
-            <div className="bg-white dark:bg-white/5 p-6 rounded-2xl border border-[#f0f0f4] dark:border-white/10 shadow-sm hover:shadow-md transition-shadow">
-              <div className="w-full aspect-video rounded-xl mb-6 bg-[#3b82f6]/5 flex items-center justify-center overflow-hidden">
-                <div className="bg-white dark:bg-[var(--background-dark)] p-6 rounded-2xl shadow-xl flex items-center gap-4 border border-[#f0f0f4] dark:border-white/10">
-                  <span className="material-symbols-outlined text-[#3b82f6] text-4xl">
-                    payments
-                  </span>
-                  <div className="flex -space-x-2">
-                    <div className="w-8 h-8 rounded-full bg-[#3b82f6] flex items-center justify-center text-[10px] text-white border-2 border-white font-bold">
-                      ETH
-                    </div>
-                    <div className="w-8 h-8 rounded-full bg-[#26a17b] flex items-center justify-center text-[10px] text-white border-2 border-white font-bold">
-                      USDT
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <h3 className="text-xl font-bold mb-2 text-[var(--foreground)] dark:text-white">
-                On-chain Payments
-              </h3>
-              <p className="text-[#616189] dark:text-gray-400">
-                Enable seamless Web3 tipping, gate content with NFTs, and manage
-                subscription revenue through secure smart contracts.
-              </p>
+            <div className="flex flex-col gap-4">
+              <PreviewPanel
+                isLocked={!isConnected}
+                isConnected={isConnected}
+                content={generatedContent}
+                prompt={prompt}
+                platform={selectedPlatform}
+                address={user?.id}
+                isLoading={isLoading}
+                // @ts-ignore
+                isPlatformConnected={connectedPlatforms.includes(
+                  selectedPlatform,
+                )}
+                connectedPlatforms={connectedPlatforms}
+                onPostSuccess={() => {
+                  setGeneratedContent("");
+                  setPrompt("");
+                  router.refresh();
+                  if (user?.id) {
+                    fetchCredits(user.id);
+                  }
+                }}
+                isEditing={isEditing}
+                setIsEditing={setIsEditing}
+                onContentChange={setGeneratedContent}
+              />
             </div>
           </div>
-        </section>
+        </div>
+      </main>
 
-        <section className="py-12 px-4">
-          <h2 className="text-[var(--foreground)] dark:text-white text-4xl md:text-5xl font-black mb-8 text-center">
-            Three Simple Steps
-          </h2>
-          <div className="flex flex-col gap-8 max-w-md mx-auto">
-            <div className="bg-white dark:bg-white/5 p-6 rounded-2xl border border-[#f0f0f4] dark:border-white/10 shadow-sm hover:shadow-md transition-shadow flex gap-4">
-              <div className="flex flex-col items-center">
-                <div className="w-12 h-12 text-white rounded-xl flex items-center justify-center font-bold text-xl">
-                  1
-                </div>
-                <div className="w-px h-full bg-[#3b82f6]/30 my-2"></div>
-              </div>
-              <div>
-                <h4 className="text-lg font-bold mb-1 text-[var(--foreground)] dark:text-white">
-                  Connect
-                </h4>
-                <p className="text-[#616189] dark:text-gray-400">
-                  Link your Web3 wallet and your social media accounts to get
-                  started.
-                </p>
-              </div>
-            </div>
+      <Footer />
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        isVisible={toast.show}
+        onClose={() => setToast((prev) => ({ ...prev, show: false }))}
+      />
+    </div>
+  );
+}
 
-            <div className="bg-white dark:bg-white/5 p-6 rounded-2xl border border-[#f0f0f4] dark:border-white/10 shadow-sm hover:shadow-md transition-shadow flex gap-4">
-              <div className="flex flex-col items-center">
-                <div className="w-12 h-12 text-white rounded-xl flex items-center justify-center font-bold text-xl">
-                  2
-                </div>
-                <div className="w-px h-full bg-[#3b82f6]/30 my-2"></div>
-              </div>
-              <div>
-                <h4 className="text-lg font-bold mb-1 text-[var(--foreground)] dark:text-white">
-                  Generate
-                </h4>
-                <p className="text-[#616189] dark:text-gray-400">
-                  Input your core message and let our AI craft the perfect
-                  narrative for your audience.
-                </p>
-              </div>
-            </div>
-
-            <div className="bg-white dark:bg-white/5 p-6 rounded-2xl border border-[#f0f0f4] dark:border-white/10 shadow-sm hover:shadow-md transition-shadow flex gap-4">
-              <div className="flex flex-col items-center">
-                <div className="w-12 h-12 text-white rounded-xl flex items-center justify-center font-bold text-xl">
-                  3
-                </div>
-              </div>
-              <div>
-                <h4 className="text-lg font-bold mb-1 text-[var(--foreground)] dark:text-white">
-                  Post
-                </h4>
-                <p className="text-[#616189] dark:text-gray-400">
-                  Schedule or publish directly on-chain and across mainstream
-                  social platforms.
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="py-12 border-y border-[#f0f0f4] dark:border-white/10 overflow-hidden">
-          <p className="text-center text-xs font-bold text-[#616189] uppercase tracking-widest mb-8">
-            Built With Modern Stack
-          </p>
-          <div className="marquee-container">
-            <div className="marquee-content flex gap-12 items-center">
-              <span className="text-2xl font-bold text-[var(--foreground)] dark:text-white/50 opacity-70">
-                Next.js
-              </span>
-              <span className="text-2xl font-bold text-[var(--foreground)] dark:text-white/50 opacity-70 flex items-center gap-2">
-                <span className="material-symbols-outlined">shield</span>{" "}
-                Thirdweb
-              </span>
-              <span className="text-2xl font-bold text-[var(--foreground)] dark:text-white/50 opacity-70">
-                Tailwind CSS
-              </span>
-              <span className="text-2xl font-bold text-[var(--foreground)] dark:text-white/50 opacity-70">
-                Bun.sh
-              </span>
-              <span className="text-2xl font-bold text-[var(--foreground)] dark:text-white/50 opacity-70">
-                OpenAI
-              </span>
-              <span className="text-2xl font-bold text-[var(--foreground)] dark:text-white/50 opacity-70">
-                Next.js
-              </span>
-              <span className="text-2xl font-bold text-[var(--foreground)] dark:text-white/50 opacity-70 flex items-center gap-2">
-                <span className="material-symbols-outlined">shield</span>{" "}
-                Thirdweb
-              </span>
-            </div>
-          </div>
-        </section>
-
-        <footer className="py-16 px-4 bg-white dark:bg-[var(--background-dark)]">
-          <div className="bg-[#3b82f6] rounded-3xl p-8 md:p-16 flex flex-col items-center text-center gap-8">
-            <h2 className="text-3xl md:text-5xl font-black text-white max-w-2xl">
-              Ready to automate your social growth?
-            </h2>
-            <p className="text-white/80 max-w-md">
-              Join hundreds of creators monetizing their content with AI and
-              Web3 integration.
-            </p>
-            <Link
-              href="/generator"
-              className="bg-white text-[#3b82f6] px-10 py-4 rounded-xl font-bold text-lg hover:bg-gray-100 transition-colors shadow-xl inline-block"
-            >
-              Get Started
-            </Link>
-          </div>
-          <div className="mt-12 flex flex-col md:flex-row justify-between items-center gap-8 text-[#616189] dark:text-gray-400">
-            <div className="flex items-center gap-2">
-              <div className="bg-[#3b82f6] text-white p-1 rounded-lg"></div>
-              <span className="font-bold text-[var(--foreground)] dark:text-white">
-                Social Flow
-              </span>
-            </div>
-            <div className="flex gap-6">
-              <a className="hover:text-[#3b82f6] transition-colors" href="#">
-                Twitter
-              </a>
-              <a className="hover:text-[#3b82f6] transition-colors" href="#">
-                Discord
-              </a>
-              <a className="hover:text-[#3b82f6] transition-colors" href="#">
-                GitHub
-              </a>
-            </div>
-            <p className="text-sm">© 2024 Social Flow Inc.</p>
-          </div>
-        </footer>
-      </div>
-    </main>
+export default function Home() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <GeneratorContent />
+    </Suspense>
   );
 }

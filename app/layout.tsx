@@ -18,18 +18,22 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: "Social Flow - Create Your Content",
     description: "Create your content with AI",
+    icons: {
+      icon: "/logo.png",
+      apple: "/logo.png",
+    },
     other: {
       "base:app_id": "6975dc273a92926b661fd495",
       "fc:miniapp": JSON.stringify({
         version: "next",
-        imageUrl: "https://dprompt.netlify.app/vercel.svg",
+        imageUrl: "https://dprompt.netlify.app/logo.png",
         button: {
           title: `Launch Your Social Flow`,
           action: {
             type: "launch_miniapp",
             name: "Social Flow",
             url: "https://dprompt.netlify.app",
-            splashImageUrl: "https://dprompt.netlify.app/vercel.svg",
+            splashImageUrl: "https://dprompt.netlify.app/logo.png",
             splashBackgroundColor: "#000000",
           },
         },
