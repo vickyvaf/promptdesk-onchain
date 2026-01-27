@@ -9,7 +9,7 @@ function withValidProperties(
 }
 
 export async function GET() {
-  const URL = process.env.NEXT_PUBLIC_URL as string;
+  const URL = process.env.NEXT_PUBLIC_URL || "http://localhost:3000";
   return Response.json({
     accountAssociation: {
       header:
