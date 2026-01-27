@@ -66,7 +66,7 @@ export default function RootLayout({
 
             <WalletWatcher />
 
-            <main className="flex-1 overflow-y-auto scrollbar-hide pb-20">
+            <main className="flex-1 overflow-y-auto scrollbar-hide pb-14">
               {children}
             </main>
 

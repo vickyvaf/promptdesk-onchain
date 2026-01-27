@@ -105,7 +105,7 @@ export function TransactionTable() {
                   : "border-transparent text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200"
               }`}
             >
-              {tab === "All" ? "All Transactions" : tab}
+              {tab === "All" ? "All" : tab}
             </button>
           ))}
         </div>

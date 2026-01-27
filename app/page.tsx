@@ -365,7 +365,7 @@ function GeneratorContent() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-50 dark:bg-black">
+    <div className="flex flex-col bg-zinc-50 dark:bg-black">
       <Header />
 
       <main className="flex-1 p-4 sm:px-6 lg:px-8">

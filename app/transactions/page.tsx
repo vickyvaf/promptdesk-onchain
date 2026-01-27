@@ -3,7 +3,7 @@ import { TransactionPageContent } from "@/components/transactions/TransactionPag
 
 export default function TransactionsPage() {
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-50 dark:bg-black">
+    <div className="flex flex-col bg-zinc-50 dark:bg-black">
       <Header />
 
       <main className="flex-1 px-4 py-8 sm:px-6 lg:px-8">

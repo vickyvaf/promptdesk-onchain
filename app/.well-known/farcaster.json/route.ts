@@ -26,7 +26,7 @@ export async function GET() {
       splashImageUrl: `${URL}/logo.png`,
       splashBackgroundColor: "#000000",
       webhookUrl: "https://dprompt.netlify.app/api/webhook",
-      subtitle: "Fast, fun, social",
+      subtitle: "Automate your content",
       description: "Automate your content",
       screenshotUrls: [`${URL}/logo.png`],
       primaryCategory: "social",
@@ -36,6 +36,7 @@ export async function GET() {
       ogTitle: "Social Flow",
       ogDescription: "Automate your content",
       ogImageUrl: `${URL}/logo.png`,
+      noIndex: false,
     },
   }); // see the next step for the manifest_json_object
 }

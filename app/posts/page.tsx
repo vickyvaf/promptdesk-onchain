@@ -472,7 +472,7 @@ function PostsContent() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-50 dark:bg-black">
+    <div className="flex flex-col bg-zinc-50 dark:bg-black">
       <Header />
 
       <main className="flex-1 px-4 py-8 sm:px-6 lg:px-8">
@@ -526,7 +526,7 @@ function PostsContent() {
           </div>
 
           {/* List */}
-          <div className="space-y-4 pb-12">
+          <div className="space-y-4">
             {posts.map((post) => {
               console.log("post", post);
 
@@ -680,9 +680,7 @@ function PostsContent() {
             )}
 
             {!loading && posts.length === 0 && (
-              <div className="rounded-xl border border-zinc-200 bg-white p-12 text-center dark:border-zinc-800 dark:bg-zinc-900">
-                <p className="text-zinc-500">No posts found.</p>
-              </div>
+              <p className="text-zinc-500 text-center mt-20">No posts found.</p>
             )}
 
             {hasMore && posts.length > 0 && (
