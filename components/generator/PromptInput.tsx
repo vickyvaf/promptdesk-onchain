@@ -71,6 +71,10 @@ export function PromptInput({
     }
   };
 
+  const heightTextArea = hasContent
+    ? "h-[calc(100vh-555px)]"
+    : "h-[calc(100vh-500px)]";
+
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
@@ -143,7 +147,7 @@ export function PromptInput({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder="Describe the content you want to create..."
-        className={`min-h-[calc(100vh-${hasContent ? 555 : 500}px)] mt-3 w-full resize-none rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-50 dark:placeholder:text-zinc-500`}
+        className={`${heightTextArea} mt-3 w-full resize-none rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-50 dark:placeholder:text-zinc-500`}
       />
       <Toast
         message={toast.message}
