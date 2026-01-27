@@ -43,7 +43,7 @@ export function Toast({
 
   return (
     <div
-      className={`fixed top-20 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-lg border px-4 py-3 shadow-lg transition-all duration-300 transform ${
+      className={`fixed top-20 left-1/2 z-50 flex w-[calc(100vw-40px)] md:w-auto -translate-x-1/2 items-center gap-3 rounded-lg border px-4 py-3 shadow-lg transition-all duration-300 transform ${
         isVisible ? "translate-y-0 opacity-100" : "-translate-y-4 opacity-0"
       } ${
         type === "success"
@@ -56,7 +56,7 @@ export function Toast({
           xmlns="http://www.w3.org/2000/svg"
           viewBox="0 0 20 20"
           fill="currentColor"
-          className="h-5 w-5"
+          className="h-5 w-5 shrink-0"
         >
           <path
             fillRule="evenodd"
@@ -69,7 +69,7 @@ export function Toast({
           xmlns="http://www.w3.org/2000/svg"
           viewBox="0 0 20 20"
           fill="currentColor"
-          className="h-5 w-5"
+          className="h-5 w-5 shrink-0"
         >
           <path
             fillRule="evenodd"
@@ -78,7 +78,7 @@ export function Toast({
           />
         </svg>
       )}
-      <p className="text-sm font-medium text-nowrap">{message}</p>
+      <p className="text-sm font-medium">{message}</p>
     </div>
   );
 }
