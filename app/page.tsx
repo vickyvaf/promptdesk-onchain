@@ -472,7 +472,7 @@ export default function Home() {
     <Suspense
       fallback={
         <Image
-          src="/logo.png"
+          src="/logo-social-flow.png"
           alt="Logo"
           width={100}
           height={100}

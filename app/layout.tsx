@@ -22,21 +22,21 @@ export async function generateMetadata(): Promise<Metadata> {
     title: "Social Flow - Create Your Content",
     description: "Create your content with AI",
     icons: {
-      icon: "/logo.png",
-      apple: "/logo.png",
+      icon: "/logo-social-flow.png",
+      apple: "/logo-social-flow.png",
     },
     other: {
       "base:app_id": "6975dc273a92926b661fd495",
       "fc:miniapp": JSON.stringify({
         version: "next",
-        imageUrl: `${URL}/logo.png`,
+        imageUrl: `${URL}/logo-social-flow.png`,
         button: {
           title: `Launch Your Social Flow`,
           action: {
             type: "launch_miniapp",
             name: "Social Flow",
             url: URL,
-            splashImageUrl: `${URL}/logo.png`,
+            splashImageUrl: `${URL}/logo-social-flow.png`,
             splashBackgroundColor: "#000000",
           },
         },
