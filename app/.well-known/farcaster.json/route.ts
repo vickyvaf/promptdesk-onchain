@@ -36,7 +36,7 @@ export async function GET() {
       ogTitle: "Social Flow",
       ogDescription: "Automate your content",
       ogImageUrl: `${URL}/logo.png`,
-      noIndex: false,
+      noindex: false,
     },
   }); // see the next step for the manifest_json_object
 }

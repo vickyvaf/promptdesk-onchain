@@ -16,6 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export async function generateMetadata(): Promise<Metadata> {
+  const URL = process.env.NEXT_PUBLIC_URL || "http://localhost:3000";
+
   return {
     title: "Social Flow - Create Your Content",
     description: "Create your content with AI",
@@ -27,14 +29,14 @@ export async function generateMetadata(): Promise<Metadata> {
       "base:app_id": "6975dc273a92926b661fd495",
       "fc:miniapp": JSON.stringify({
         version: "next",
-        imageUrl: "https://dprompt.netlify.app/logo.png",
+        imageUrl: `${URL}/logo.png`,
         button: {
           title: `Launch Your Social Flow`,
           action: {
             type: "launch_miniapp",
             name: "Social Flow",
-            url: "https://dprompt.netlify.app",
-            splashImageUrl: "https://dprompt.netlify.app/logo.png",
+            url: URL,
+            splashImageUrl: `${URL}/logo.png`,
             splashBackgroundColor: "#000000",
           },
         },
