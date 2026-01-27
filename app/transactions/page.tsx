@@ -13,7 +13,7 @@ export default function TransactionsPage() {
               Transaction History
             </h1>
             <p className="text-zinc-600 dark:text-zinc-400">
-              Audit and track your content across all platforms.
+              Monitor your wallet balance, expenses, and transaction history.
             </p>
           </div>
 
