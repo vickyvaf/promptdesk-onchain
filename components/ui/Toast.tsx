@@ -78,7 +78,7 @@ export function Toast({
           />
         </svg>
       )}
-      <p className="text-sm font-medium">{message}</p>
+      <p className="text-sm font-medium text-nowrap">{message}</p>
     </div>
   );
 }

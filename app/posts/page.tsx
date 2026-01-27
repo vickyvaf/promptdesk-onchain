@@ -482,7 +482,7 @@ function PostsContent() {
               Posts
             </h1>
             <p className="text-zinc-600 dark:text-zinc-400">
-              Manage and track your social media posts across all platforms.
+              Manage and track your content across all platforms.
             </p>
           </div>
 

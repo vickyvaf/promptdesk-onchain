@@ -8,9 +8,6 @@ if (!supabaseUrl || !supabaseAnonKey) {
     supabaseUrl: !!supabaseUrl,
     supabaseAnonKey: !!supabaseAnonKey,
   });
-} else {
-  // Debug log to confirm URL loaded (remove in production)
-  console.log("Supabase Client initializing with URL:", supabaseUrl);
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);

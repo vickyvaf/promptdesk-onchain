@@ -5,12 +5,12 @@ import { PreviewPanel } from "@/components/generator/PreviewPanel";
 import { PromptInput } from "@/components/generator/PromptInput";
 import { Header } from "@/components/layout/Header";
 import { Toast } from "@/components/ui/Toast";
-import { supabase } from "@/supabase/client";
+import { useWalletAuth } from "@/hooks/useWalletAuth";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { User } from "@supabase/supabase-js";
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
-import { useWalletAuth } from "@/hooks/useWalletAuth";
 import { useAccount } from "wagmi";
 
 function GeneratorContent() {
@@ -469,7 +469,17 @@ function GeneratorContent() {
 
 export default function Home() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense
+      fallback={
+        <Image
+          src="/logo.png"
+          alt="Logo"
+          width={100}
+          height={100}
+          className="mx-auto mt-40"
+        />
+      }
+    >
       <GeneratorContent />
     </Suspense>
   );
