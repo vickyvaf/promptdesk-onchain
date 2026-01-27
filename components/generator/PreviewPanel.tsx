@@ -293,7 +293,7 @@ export function PreviewPanel({
   }, []);
 
   return (
-    <div className="h-[calc(100vh-160px)] flex flex-col rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-black overflow-hidden relative">
+    <div className="h-[calc(100vh-160px)] overflow-y-auto flex flex-col rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-black overflow-hidden relative">
       <div className="flex items-center justify-between border-b border-zinc-100 px-4 py-3 dark:border-zinc-800">
         <div className="flex items-center gap-2">
           {onBack && (
