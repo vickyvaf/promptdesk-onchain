@@ -71,7 +71,7 @@ function GeneratorContent() {
         window.matchMedia("(prefers-color-scheme: dark)").matches;
       if (prefersDark) document.documentElement.classList.add("dark");
       else document.documentElement.classList.remove("dark");
-    } catch (e) { }
+    } catch (e) {}
   }, []);
 
   // Farcaster SDK effect from original page.tsx
@@ -141,7 +141,9 @@ function GeneratorContent() {
       if (!isConnected || hasCheckedPreferences) return;
 
       try {
-        const response = await fetch(`/api/user/config?address=${address || ""}`);
+        const response = await fetch(
+          `/api/user/config?address=${address || ""}`,
+        );
         const data = await response.json();
 
         if (data.preferences) {
@@ -272,11 +274,7 @@ function GeneratorContent() {
     } finally {
       setIsLoading(false);
     }
-
-
   };
-
-
 
   const [connectedPlatforms, setConnectedPlatforms] = useState<string[]>([]);
   const [connectedUsernames, setConnectedUsernames] = useState<
@@ -404,19 +402,11 @@ function GeneratorContent() {
     <div className="flex flex-col bg-zinc-50 dark:bg-black">
       <Header onSettingsClick={() => setShowPreferencesModal(true)} />
 
-      <main className="flex-1 p-4 sm:px-6 lg:px-8">
+      <main className="flex-1 p-4 sm:px-6 lg:px-8 overflow-y-auto">
         <div className="container mx-auto max-w-7xl">
           <div className="mx-auto w-full max-w-3xl">
             {!showPreview && (
-              <div className="h-[calc(100vh-160px)] overflow-y-auto flex flex-col gap-3 rounded-2xl bg-white px-5 shadow-sm ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-800">
-                <PromptInput
-                  value={prompt}
-                  onChange={setPrompt}
-                  isConnected={isConnected}
-                  hasContent={!!generatedContent}
-                  onNext={() => setShowPreview(true)}
-                />
-
+              <div className="h-[calc(100vh-160px)] py-3 pb-6 overflow-y-auto flex flex-col gap-3 rounded-2xl bg-white px-5 shadow-sm ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-800">
                 <PlatformSelector
                   selected={selectedPlatform}
                   onSelect={handlePlatformSelect}
@@ -433,6 +423,14 @@ function GeneratorContent() {
                   onDisconnect={handleDisconnect}
                   onConnect={handleConnect}
                   isConnected={isConnected}
+                />
+
+                <PromptInput
+                  value={prompt}
+                  onChange={setPrompt}
+                  isConnected={isConnected}
+                  hasContent={!!generatedContent}
+                  onNext={() => setShowPreview(true)}
                 />
 
                 <button
