@@ -41,25 +41,32 @@ export function StatsCards() {
 
         const userId = profileData.id;
 
-        // Fetch IDRX transactions for stats
+        // Fetch transactions for stats
         const { data: transactions, error } = await supabase
-          .from("transactions")
-          .select("amount, status, created_at, token_symbol")
-          .eq("user_id", userId)
-          .eq("token_symbol", "IDRX");
+          .from("post_transactions")
+          .select("amount_eth, status, created_at, currency")
+          .eq("user_id", userId);
 
         if (error) throw error;
 
         if (transactions) {
-          const totalSpent = transactions
-            .filter((t) => t.status === "success")
+          // Map to match previous structure slightly for calculation
+          const mappedTransactions = transactions.map((t) => ({
+            amount: t.amount_eth,
+            status: t.status,
+            created_at: t.created_at,
+            token_symbol: t.currency,
+          }));
+
+          const totalSpent = mappedTransactions
+            .filter((t) => t.status === "confirmed") // Changed from success to confirmed
             .reduce((acc, curr) => acc + Number(curr.amount), 0);
 
           // Count recent (last 30 days)
           const thirtyDaysAgo = new Date();
           thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-          const recentCount = transactions.filter(
+          const recentCount = mappedTransactions.filter(
             (t) => new Date(t.created_at) > thirtyDaysAgo,
           ).length;
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useAccount, useWriteContract } from "wagmi";
 import { useReadContract } from "wagmi";
 import { Coins } from "lucide-react";
@@ -77,6 +78,12 @@ export function FaucetModal({ isOpen, onClose }: FaucetModalProps) {
     type: "success",
   });
 
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   if (!isOpen) return null;
 
   const handleClaim = async () => {
@@ -117,19 +124,26 @@ export function FaucetModal({ isOpen, onClose }: FaucetModalProps) {
         setIsSuccess(false);
         setTxHash("");
       }, 5000);
-
     } catch (err: any) {
       console.error("Faucet claim failed:", err);
 
       let errorMessage = "Failed to claim IDRX. Please try again later.";
 
       // Check for specific errors
-      if (err?.message?.includes("FaucetCooldown") || err?.message?.includes("cooldown")) {
-        errorMessage = "You've already claimed recently. Please wait 24 hours before claiming again.";
-      } else if (err?.message?.includes("user rejected") || err?.message?.includes("User rejected")) {
+      if (
+        err?.message?.includes("FaucetCooldown") ||
+        err?.message?.includes("cooldown")
+      ) {
+        errorMessage =
+          "You've already claimed recently. Please wait 24 hours before claiming again.";
+      } else if (
+        err?.message?.includes("user rejected") ||
+        err?.message?.includes("User rejected")
+      ) {
         errorMessage = "Transaction cancelled.";
       } else if (err?.message?.includes("insufficient")) {
-        errorMessage = "Faucet contract has insufficient balance. Please try again later.";
+        errorMessage =
+          "Faucet contract has insufficient balance. Please try again later.";
       }
 
       setToast({
@@ -141,8 +155,8 @@ export function FaucetModal({ isOpen, onClose }: FaucetModalProps) {
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+  const modalContent = (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <div className="w-full max-w-md overflow-hidden rounded-3xl border border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 animate-in fade-in zoom-in duration-200">
         <div className="flex items-center justify-between border-b border-zinc-100 px-6 py-4 dark:border-zinc-800">
           <h2 className="text-xl font-bold text-zinc-900 dark:text-white">
@@ -192,7 +206,8 @@ export function FaucetModal({ isOpen, onClose }: FaucetModalProps) {
                 {FAUCET_AMOUNT_DISPLAY} IDRX Claimed!
               </h3>
               <p className="text-zinc-500 dark:text-zinc-400 px-4 mb-4">
-                Your tokens will arrive shortly. You can now use them to generate content.
+                Your tokens will arrive shortly. You can now use them to
+                generate content.
               </p>
               {txHash && (
                 <a
@@ -238,7 +253,11 @@ export function FaucetModal({ isOpen, onClose }: FaucetModalProps) {
                       After Claim
                     </span>
                     <span className="text-lg font-semibold text-green-600 dark:text-green-400">
-                      {(parseFloat(balanceFormatted) + parseFloat(FAUCET_AMOUNT_DISPLAY)).toFixed(2)} IDRX
+                      {(
+                        parseFloat(balanceFormatted) +
+                        parseFloat(FAUCET_AMOUNT_DISPLAY)
+                      ).toFixed(2)}{" "}
+                      IDRX
                     </span>
                   </div>
                 </div>
@@ -287,7 +306,8 @@ export function FaucetModal({ isOpen, onClose }: FaucetModalProps) {
                         Testnet Only
                       </p>
                       <p className="text-xs text-amber-700 dark:text-amber-300">
-                        This faucet only works on Base Sepolia testnet. IDRX tokens have no real value.
+                        This faucet only works on Base Sepolia testnet. IDRX
+                        tokens have no real value.
                       </p>
                     </div>
                   </div>
@@ -351,4 +371,10 @@ export function FaucetModal({ isOpen, onClose }: FaucetModalProps) {
       )}
     </div>
   );
+
+  if (mounted) {
+    return createPortal(modalContent, document.body);
+  }
+
+  return null;
 }
