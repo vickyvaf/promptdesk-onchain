@@ -12,7 +12,9 @@ import {
   useWriteContract,
   useSwitchChain,
   useChainId,
+  useConfig,
 } from "wagmi";
+import { waitForTransactionReceipt } from "wagmi/actions";
 
 interface FaucetModalProps {
   isOpen: boolean;
@@ -34,6 +36,7 @@ export function FaucetModal({ isOpen, onClose }: FaucetModalProps) {
   const { writeContractAsync } = useWriteContract();
   const { switchChainAsync } = useSwitchChain();
   const chainId = useChainId();
+  const config = useConfig();
 
   // Read last claim time from contract
   const { data: lastClaimTime, isLoading: isLoadingLastClaim } =
@@ -137,12 +140,14 @@ export function FaucetModal({ isOpen, onClose }: FaucetModalProps) {
       });
 
       setTxHash(hash);
+
+      // Wait for transaction to be mined
+      await waitForTransactionReceipt(config, { hash });
+
       setIsSuccess(true);
 
-      // Refetch balance after a delay
-      setTimeout(async () => {
-        await refetchBalance();
-      }, 3000);
+      // Refetch balance immediately after confirmation
+      await refetchBalance();
 
       // Auto close after success
       setTimeout(() => {

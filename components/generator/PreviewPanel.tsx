@@ -330,7 +330,7 @@ export function PreviewPanel({
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col items-center justify-center p-8 relative">
+      <div className="border border-zinc-50 dark:border-zinc-800 my-4 rounded-lg flex flex-1 flex-col items-center justify-center p-8 relative">
         {!isWindowFocused && content && (
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/50 dark:bg-black/50 backdrop-blur-md">
             <span className="text-lg font-bold text-zinc-800 dark:text-white drop-shadow-md">
