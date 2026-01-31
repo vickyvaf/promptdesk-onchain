@@ -13,8 +13,8 @@ import {
   useSwitchChain,
   useChainId,
   useConfig,
+  useWaitForTransactionReceipt,
 } from "wagmi";
-import { waitForTransactionReceipt } from "wagmi/actions";
 
 interface FaucetModalProps {
   isOpen: boolean;
@@ -36,7 +36,46 @@ export function FaucetModal({ isOpen, onClose }: FaucetModalProps) {
   const { writeContractAsync } = useWriteContract();
   const { switchChainAsync } = useSwitchChain();
   const chainId = useChainId();
-  const config = useConfig();
+  // Wait for transaction receipt
+  const {
+    isLoading: isConfirming,
+    isSuccess: isConfirmed,
+    error: receiptError,
+  } = useWaitForTransactionReceipt({
+    hash: txHash as `0x${string}`,
+    query: {
+      enabled: !!txHash,
+    },
+  });
+
+  // Handle successful confirmation
+  useEffect(() => {
+    if (isConfirmed) {
+      setIsSuccess(true);
+      refetchBalance();
+
+      const timer = setTimeout(() => {
+        onClose();
+        setIsProcessing(false);
+        setIsSuccess(false);
+        setTxHash("");
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [isConfirmed, onClose, refetchBalance]);
+
+  // Handle receipt error
+  useEffect(() => {
+    if (receiptError) {
+      setToast({
+        show: true,
+        message: "Transaction failed validation. Please check explorer.",
+        type: "error",
+      });
+      setIsProcessing(false);
+      setTxHash("");
+    }
+  }, [receiptError]);
 
   // Read last claim time from contract
   const { data: lastClaimTime, isLoading: isLoadingLastClaim } =
@@ -141,21 +180,8 @@ export function FaucetModal({ isOpen, onClose }: FaucetModalProps) {
 
       setTxHash(hash);
 
-      // Wait for transaction to be mined
-      await waitForTransactionReceipt(config, { hash });
-
-      setIsSuccess(true);
-
-      // Refetch balance immediately after confirmation
-      await refetchBalance();
-
-      // Auto close after success
-      setTimeout(() => {
-        onClose();
-        setIsProcessing(false);
-        setIsSuccess(false);
-        setTxHash("");
-      }, 5000);
+      // We rely on the useWaitForTransactionReceipt hook to handle success
+      // setIsSuccess(true); will be called in useEffect
     } catch (err: any) {
       console.error("Faucet claim failed:", err);
 
@@ -392,6 +418,26 @@ export function FaucetModal({ isOpen, onClose }: FaucetModalProps) {
                     />
                   </svg>
                   Claiming...
+                </>
+              ) : isConfirming ? (
+                <>
+                  <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24">
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                      fill="none"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    />
+                  </svg>
+                  Confirming...
                 </>
               ) : (
                 <>
